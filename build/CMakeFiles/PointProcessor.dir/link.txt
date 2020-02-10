@@ -1,0 +1,2 @@
+/usr/bin/ar qc libPointProcessor.a  CMakeFiles/PointProcessor.dir/src/PointProcessor.cpp.o
+/usr/bin/ranlib libPointProcessor.a

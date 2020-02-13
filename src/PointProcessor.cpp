@@ -1,5 +1,9 @@
 #include "Profiler.hpp"
+#include "KDTree.hpp"
 #include "PointProcessor.h"
+
+#include <omp.h>
+
 
 
 template<typename PointT>
@@ -97,6 +101,61 @@ std::vector<int> PointProcessor<PointT>::ransac(PointCloud<PointT> cloud, int ma
 }
 
 template<typename PointT>
+PointCloud<PointT> PointProcessor<PointT>::ransac_omp(PointCloud<PointT> cloud, int maxIterations, float distanceTol)
+{
+    // OpenMP
+    int nThreads = std::max(1, omp_get_max_threads());
+    omp_set_dynamic(0);
+    omp_set_num_threads(nThreads);
+
+    // Create random engine for each thread
+    std::vector<std::mt19937> randomEngines;
+    // std::cout << "[ INFO ]: Maximum usable threads: " << nThreads << std::endl;
+    for(int i = 0; i < nThreads; ++i)
+    {
+        std::random_device seedDevice;
+        randomEngines.push_back(std::mt19937(seedDevice()));
+    }
+
+    // Init Containers
+    PointCloud<PointT> bestInlier( new pcl::PointCloud<PointT>);
+    std::vector<PointCloud<PointT>> inlierAccum(maxIterations);
+    std::vector<std::shared_ptr<PlaneModel<PointT>>> sampledModels(maxIterations);
+    std::vector<float> inlierFractionAccum(maxIterations);
+    std::shared_ptr<PlaneModel<PointT>> bestModel;
+    float bestModelScore=0;
+
+    // 
+    std::uniform_int_distribution<int> dist(0, cloud->points.size()-1);
+
+    #pragma omp parallel for
+    for(int i = 0; i < maxIterations; ++i)
+    {
+        std::vector<PointT> randSamples;
+        while(randSamples.size() < 3)
+        {
+            randSamples.push_back(cloud->points[dist(randomEngines[omp_get_thread_num()])]);
+        }
+
+        std::shared_ptr<PlaneModel<PointT>> randomModel = std::make_shared<PlaneModel<PointT>>(randSamples);
+        auto evalPair = randomModel->evaluate(cloud, distanceTol);
+        inlierFractionAccum[i] = evalPair.first;
+        inlierAccum[i] = evalPair.second;
+        sampledModels[i] = randomModel;
+    }
+    for(int i = 0; i < maxIterations; ++i)
+    {
+        if(inlierFractionAccum[i] > bestModelScore)
+        {
+            bestModelScore = inlierFractionAccum[i];
+            bestModel = sampledModels[i];
+            bestInlier = inlierAccum[i];
+        }
+    }
+    return bestInlier;
+}
+
+template<typename PointT>
 PointCloudPair<PointT> PointProcessor<PointT>::seperateClouds(std::vector<int> inliers, PointCloud<PointT> cloud)
 {
     PROFILE_FUNCTION();
@@ -136,10 +195,25 @@ PointCloudPair<PointT> PointProcessor<PointT>::segmentCloud(PointCloud<PointT> i
     //     std::cerr << "Could not estimate a planar model for the given dataset." << std::endl;
     // }
 
-    auto inliers = ransac(inputCloud, maxIterations, distanceThreshold);
-    auto segResult = seperateClouds(inliers, inputCloud);
+    // auto inliers = ransac(inputCloud, maxIterations, distanceThreshold);
+    auto inliers = ransac_omp(inputCloud, maxIterations, distanceThreshold);
+
+    // std::vector<int> placeholder;
+    // auto segResult = seperateClouds(placeholder, inputCloud);
+    PointCloudPair<PointT> segResult(inliers, inputCloud);
     return segResult;
 }
+
+template<typename PointT>
+std::vector<PointCloud<PointT>> PointProcessor<PointT>::clusterCloud(PointCloud<PointT> inputCloud, float clusterTolerance, int minSize, int maxSize)
+{
+    std::shared_ptr<KdTree> tree = std::make_shared<KdTree>();
+    for (int i=0; i<inputCloud->points.size(); i++) 
+    	tree->insert(inputCloud->points[i],i); 
+
+}
+
+
 
 template<typename PointT>
 PointCloud<PointT> PointProcessor<PointT>::loadPCD(std::string file)

@@ -40,8 +40,9 @@ int main()
         auto filteredCloud = pointProcessor.filterCloud(cloud, 0.1f, Eigen::Vector4f (-10, -5, -3, 1), Eigen::Vector4f (30, 7, 1, 1) );
         // Segment Plane
         auto segmentedCloud = pointProcessor.segmentCloud(filteredCloud, 100, 0.2);
+        // renderPointCloud(viewer, segmentedCloud.first, "Road", Color(0,1,0));
+        renderPointCloud(viewer, segmentedCloud.second, "Rest", Color(1,1,1));
         renderPointCloud(viewer, segmentedCloud.first, "Road", Color(0,1,0));
-        renderPointCloud(viewer, segmentedCloud.second, "Rest", Color(1,0,0));
 
         Profiler::get().endSession();
 

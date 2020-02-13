@@ -41,15 +41,7 @@ class PointProcessor
         std::vector<boost::filesystem::path> streamPCD(std::string dataPath);
 
     private:
-
-        std::vector<int> ransac(PointCloud<PointT> cloud, int maxIterations, float distanceTol);
-        PointCloud<PointT> ransac_omp(PointCloud<PointT> cloud, int maxIterations, float distanceTol);
-        std::vector<int> ransac_async(PointCloud<PointT> cloud, int maxIterations, float distanceTol);
-
-
-
-        Eigen::Vector4f fitPlane(std::vector<int>& inliers, PointCloud<PointT> cloud);
-        PointCloudPair<PointT> seperateClouds(std::vector<int> inliers, PointCloud<PointT> cloud);
+        PointCloudPair<PointT> ransac(PointCloud<PointT> cloud, int maxIterations, float distanceTol);
 };
 
 
@@ -70,9 +62,10 @@ class PlaneModel
             m_n = sqrt( m_a*m_a + m_b*m_b + m_c*m_c );
         }
 
-        std::pair<float, PointCloud<PointT>> evaluate(const PointCloud<PointT> cloud, float distanceTol)
+        std::pair<float, PointCloudPair<PointT>> evaluate(const PointCloud<PointT> cloud, float distanceTol)
         {
             PointCloud<PointT> inliers(new pcl::PointCloud<PointT>);
+            PointCloud<PointT> outliers(new pcl::PointCloud<PointT>);
             int nPoints = cloud->points.size();
             int nInliers = 0;
             for( auto p : cloud->points )
@@ -81,11 +74,14 @@ class PlaneModel
                 {
                     inliers->points.push_back(p);
                     nInliers++;
-                }
+                }else
+                {
+                    outliers->points.push_back(p);
+                }   
             }
-
             float inlierFraction = (float)nInliers/(float)nPoints;
-            return std::make_pair(inlierFraction, inliers);
+            PointCloudPair<PointT> result(inliers, outliers);
+            return std::make_pair(inlierFraction, result);
         }
 
     protected:

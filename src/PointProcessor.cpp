@@ -1,9 +1,11 @@
+#include "Profiler.hpp"
 #include "PointProcessor.h"
 
 
 template<typename PointT>
 PointCloud<PointT> PointProcessor<PointT>::filterCloud(PointCloud<PointT> inputCloud, float filterRes, Eigen::Vector4f minPoint, Eigen::Vector4f maxPoint)
 {
+    PROFILE_FUNCTION();
     // voxel grid point reduction and region based filtering
     PointCloud<PointT> cloudFiltered(new pcl::PointCloud<PointT>);
     pcl::VoxelGrid<PointT> filter;
@@ -39,73 +41,53 @@ PointCloud<PointT> PointProcessor<PointT>::filterCloud(PointCloud<PointT> inputC
 }
 
 template<typename PointT>
-std::vector<float> PointProcessor<PointT>::planeModel(PointT p1, PointT p2, PointT p3)
+Eigen::Vector4f PointProcessor<PointT>::fitPlane(std::vector<int>& inliers, PointCloud<PointT> cloud)
 {
-    float a1 = p2.x - p1.x;
-    float b1 = p2.y - p1.y;
-    float c1 = p2.z - p1.z;
+    // PROFILE_FUNCTION();
+    Eigen::Array4f p1 = cloud->points[inliers[0]].getArray4fMap();
+    Eigen::Array4f p2 = cloud->points[inliers[1]].getArray4fMap();
+    Eigen::Array4f p3 = cloud->points[inliers[2]].getArray4fMap();
+    Eigen::Vector4f v1 = p2 - p1;
+    Eigen::Vector4f v2 = p3 - p1;
+    Eigen::Vector4f model;
 
-    float a2 = p3.x - p1.x;
-    float b2 = p3.y - p1.y;
-    float c2 = p3.z - p1.z;
-
-    float a = b1 * c2 - b2 * c1; 
-    float b = a2 * c1 - a1 * c2;
-    float c = a1 * b2 - b1 * a2;
-    float d = (- a * p1.x - b * p1.y - c * p1.z);
-
-    std::vector<float> model{a,b,c,d};
+    model.head<3>() = v1.head<3>().cross(v2.head<3>());
+    model[3] = (- model[0] * p1[0] - model[1] * p1[1] - model[2] * p1[2]);
     return model;
 }
 
 template<typename PointT>
 std::vector<int> PointProcessor<PointT>::ransac(PointCloud<PointT> cloud, int maxIterations, float distanceTol)
 {
+    PROFILE_FUNCTION();
     std::vector<int> inliersResult;
     std::random_device rd;
     std::mt19937 gen(rd());
 
-    while (maxIterations--)
+    #pragma omp parallel for
+    for(int i=0; i < maxIterations; i++)
     {
-        
-        std::unordered_set<int> modelPoints;
-
-
-        // Efficient Random Sampling: https://stackoverflow.com/a/28287865
-        for(int r = cloud->points.size() - 3; r < cloud->points.size(); ++r)
+        std::vector<int> inliers;
+        std::vector<int> samplePoints;
+        std::uniform_int_distribution<> dist(1, cloud->points.size());
+        while(samplePoints.size() < 3)
         {
-            int v = std::uniform_int_distribution<>(1, r)(gen);
-            if(!modelPoints.insert(v).second)
-            {
-                modelPoints.insert(r);
-            }
+            samplePoints.push_back(dist(gen));
         }
-        
-        std::vector<int> inliers(modelPoints.begin(), modelPoints.end());
-
         // Compute Plane Model
-        auto it = inliers.begin();
-        auto model = planeModel(cloud->points[*it], cloud->points[*std::next(it, 1)], cloud->points[*std::next(it, 2)]);
-        float a, b, c, d;
-        a = model[0];
-        b = model[1];
-        c = model[2];
-        d = model[3];
-        float n = sqrt(a*a + b*b + c*c);
+        auto model = fitPlane(samplePoints, cloud);
+        float n = sqrt(pow(model[0],2) + pow(model[1],2) + pow(model[2],2));
 
         // Measure distance between every point and fitted plane
         for( int idx = 0; idx < cloud->points.size(); idx++)
-		{
-			if(modelPoints.count(idx) > 0)
-				continue;
-			float distance = fabs(a * cloud->points[idx].x + b * cloud->points[idx].y + c * cloud->points[idx].z + d)/n;
-			// If distance is smaller than threshold count it as inlier
-			if(distance <= distanceTol)
-			{
-				inliers.push_back(idx);
-			}
-		}
-        // Return indicies of inliers from fitted line with most inliers
+        {
+            float distance = fabs((model[0] * cloud->points[idx].x + model[1] * cloud->points[idx].y + model[2] * cloud->points[idx].z + model[3])/n);
+            if(distance <= distanceTol)
+            {
+                inliers.push_back(idx);
+            }
+        }
+        #pragma omp critical
 		if(inliers.size() > inliersResult.size())
 		{
 			inliersResult = inliers;
@@ -117,23 +99,20 @@ std::vector<int> PointProcessor<PointT>::ransac(PointCloud<PointT> cloud, int ma
 template<typename PointT>
 PointCloudPair<PointT> PointProcessor<PointT>::seperateClouds(std::vector<int> inliers, PointCloud<PointT> cloud)
 {
+    PROFILE_FUNCTION();
     PointCloud<PointT> cloudInliers(new pcl::PointCloud<PointT>());
 	PointCloud<PointT> cloudOutliers(new pcl::PointCloud<PointT>());
 
-    std::sort(inliers.begin(), inliers.end());
-    auto it = inliers.begin();
-    for(int idx = 0; idx < cloud->points.size(); idx++)
-    {
-        PointT point = cloud->points[idx];
-        if( idx < *it )
-        {
-            cloudOutliers->points.push_back(point);
-        } else 
-        {
-            cloudInliers->points.push_back(point);
-            it++;
-        }
-    } 
+    pcl::PointIndices::Ptr in {new pcl::PointIndices};
+    in->indices = inliers;
+
+    pcl::ExtractIndices<PointT> extract;
+    extract.setInputCloud(cloud);
+    extract.setIndices(in);
+    extract.setNegative(false);
+    extract.filter(*cloudInliers);
+    extract.setNegative(true);
+    extract.filter(*cloudOutliers);
     PointCloudPair<PointT> cloudPair(cloudInliers, cloudOutliers);
     return cloudPair;
 }
@@ -141,48 +120,36 @@ PointCloudPair<PointT> PointProcessor<PointT>::seperateClouds(std::vector<int> i
 template<typename PointT>
 PointCloudPair<PointT> PointProcessor<PointT>::segmentCloud(PointCloud<PointT> inputCloud, int maxIterations, float distanceThreshold)
 {
-    pcl::SACSegmentation<PointT> seg;
-	pcl::PointIndices::Ptr inliers {new pcl::PointIndices};
-    pcl::ModelCoefficients::Ptr coefficients {new pcl::ModelCoefficients};
-    seg.setOptimizeCoefficients(true);
-    seg.setModelType(pcl::SACMODEL_PLANE);
-    seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setMaxIterations(maxIterations);
-    seg.setDistanceThreshold(distanceThreshold);
-    seg.setInputCloud(inputCloud);
-    seg.segment(*inliers, *coefficients);
-    if(inliers->indices.size() == 0)
-    {
-        std::cerr << "Could not estimate a planar model for the given dataset." << std::endl;
-    }
-    // Create two new point clouds, one cloud with obstacles and other with segmented plane
-    typename pcl::PointCloud<PointT>::Ptr planeCloud {new pcl::PointCloud<PointT>};
-    typename pcl::PointCloud<PointT>::Ptr obstCloud {new pcl::PointCloud<PointT>};
-    pcl::ExtractIndices<PointT> extract;
-    extract.setInputCloud(inputCloud);
-    extract.setIndices(inliers);
-    extract.setNegative(false);
-    extract.filter(*planeCloud);
-    extract.setNegative(true);
-    extract.filter(*obstCloud);
-    PointCloudPair<PointT> segResult(planeCloud, obstCloud);
+    PROFILE_FUNCTION();
+    // pcl::SACSegmentation<PointT> seg;
+	// pcl::PointIndices::Ptr inliers {new pcl::PointIndices};
+    // pcl::ModelCoefficients::Ptr coefficients {new pcl::ModelCoefficients};
+    // seg.setOptimizeCoefficients(true);
+    // seg.setModelType(pcl::SACMODEL_PLANE);
+    // seg.setMethodType(pcl::SAC_RANSAC);
+    // seg.setMaxIterations(maxIterations);
+    // seg.setDistanceThreshold(distanceThreshold);
+    // seg.setInputCloud(inputCloud);
+    // seg.segment(*inliers, *coefficients);
+    // if(inliers->indices.size() == 0)
+    // {
+    //     std::cerr << "Could not estimate a planar model for the given dataset." << std::endl;
+    // }
 
-    // std::vector<int> inliers = ransac(inputCloud, maxIterations, distanceThreshold);
-    // auto segResult = seperateClouds(inliers, inputCloud);
-
+    auto inliers = ransac(inputCloud, maxIterations, distanceThreshold);
+    auto segResult = seperateClouds(inliers, inputCloud);
     return segResult;
 }
 
 template<typename PointT>
 PointCloud<PointT> PointProcessor<PointT>::loadPCD(std::string file)
 {
+    PROFILE_FUNCTION();
     PointCloud<PointT> cloud(new pcl::PointCloud<PointT>);
     if (pcl::io::loadPCDFile<PointT> (file, *cloud) == -1) //* load the file
     {
         PCL_ERROR ("Couldn't read file \n");
     }
-    std::cerr << "Loaded " << cloud->points.size () << " data points from "+file << std::endl;
-
     return cloud;
 }
 
@@ -190,7 +157,6 @@ template<typename PointT>
 std::vector<boost::filesystem::path> PointProcessor<PointT>::streamPCD(std::string dataPath)
 {
     std::vector<boost::filesystem::path> paths(boost::filesystem::directory_iterator{dataPath}, boost::filesystem::directory_iterator{});
-    // sort files in accending order so playback is chronological
     sort(paths.begin(), paths.end());
     return paths;
 }

@@ -1,5 +1,6 @@
-#include "Profiler.hpp"
-#include "KDTree.hpp"
+#include "utils/Profiler.hpp"
+
+// #include "KDTree.hpp"
 #include "PointProcessor.h"
 
 #include <omp.h>
@@ -47,6 +48,7 @@ PointCloud<PointT> PointProcessor<PointT>::filterCloud(PointCloud<PointT> inputC
 template<typename PointT>
 PointCloudPair<PointT> PointProcessor<PointT>::ransac(PointCloud<PointT> cloud, int maxIterations, float distanceTol)
 {
+    PROFILE_FUNCTION();
     // OpenMP
     int nThreads = std::max(1, omp_get_max_threads());
     omp_set_dynamic(0);
@@ -104,14 +106,14 @@ PointCloudPair<PointT> PointProcessor<PointT>::segmentCloud(PointCloud<PointT> i
     return ransac(inputCloud, maxIterations, distanceThreshold);
 }
 
-template<typename PointT>
-std::vector<PointCloud<PointT>> PointProcessor<PointT>::clusterCloud(PointCloud<PointT> inputCloud, float clusterTolerance, int minSize, int maxSize)
-{
-    std::shared_ptr<KdTree> tree = std::make_shared<KdTree>();
-    for (int i=0; i<inputCloud->points.size(); i++) 
-    	tree->insert(inputCloud->points[i],i); 
+// template<typename PointT>
+// std::vector<PointCloud<PointT>> PointProcessor<PointT>::clusterCloud(PointCloud<PointT> inputCloud, float clusterTolerance, int minSize, int maxSize)
+// {
+//     std::shared_ptr<KdTree> tree = std::make_shared<KdTree>();
+//     for (int i=0; i<inputCloud->points.size(); i++) 
+//     	tree->insert(inputCloud->points[i],i); 
 
-}
+// }
 
 
 

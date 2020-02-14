@@ -1,5 +1,5 @@
 #include <iostream>
-#include "Profiler.hpp"
+#include "utils/Profiler.hpp"
 
 #define PROFILING 1
 #if PROFILING 
@@ -10,10 +10,10 @@
     #define PROFILE_FUNCTION()
 #endif
 
-#include "utils.h"
-#include "PointProcessor.h"
-#include "PointProcessor.cpp"
-
+#include "render.h"
+// #include "PointProcessor.h"
+// #include "PointProcessor.cpp"
+#include "PointProcessor.hpp"
 
 int main()
 {
@@ -41,8 +41,10 @@ int main()
         // Segment Plane
         auto segmentedCloud = pointProcessor.segmentCloud(filteredCloud, 100, 0.2);
         // renderPointCloud(viewer, segmentedCloud.first, "Road", Color(0,1,0));
-        renderPointCloud(viewer, segmentedCloud.first, "Road", Color(0,1,0));
-        renderPointCloud(viewer, segmentedCloud.second, "Rest", Color(1,0,0));
+        auto clusters = pointProcessor.clusterCloud(segmentedCloud.outlier, 0.5);
+
+        renderPointCloud(viewer, segmentedCloud.inlier, "Road", Color(0,1,0));
+        renderPointCloud(viewer, segmentedCloud.outlier, "Rest", Color(1,0,0));
         
         Profiler::get().endSession();
 

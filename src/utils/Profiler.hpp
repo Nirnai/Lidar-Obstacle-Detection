@@ -21,7 +21,7 @@ class Profiler
 public:
     Profiler() : m_currentSession(nullptr), m_profileCount(0){}
     
-    void beginSession(const std::string& name, const std::string& filepath = "results.json")
+    void beginSession(const std::string& name, const std::string& filepath = "../profile/profile.json")
     {
         m_outputStream.open(filepath);
         writeHeader();

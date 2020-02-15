@@ -11,8 +11,6 @@
 #endif
 
 #include "render.h"
-// #include "PointProcessor.h"
-// #include "PointProcessor.cpp"
 #include "PointProcessor.hpp"
 
 int main()
@@ -33,6 +31,7 @@ int main()
         viewer->removeAllPointClouds();
         viewer->removeAllShapes();
 
+        // Profile One Frame of processing
         Profiler::get().beginSession("Profile");
         // Load pcd and run obstacle detection process
         cloud = pointProcessor.loadPCD((*streamIterator).string());
@@ -40,12 +39,21 @@ int main()
         auto filteredCloud = pointProcessor.filterCloud(cloud, 0.1f, Eigen::Vector4f (-10, -5, -3, 1), Eigen::Vector4f (30, 7, 1, 1) );
         // Segment Plane
         auto segmentedCloud = pointProcessor.segmentCloud(filteredCloud, 100, 0.2);
-        // renderPointCloud(viewer, segmentedCloud.first, "Road", Color(0,1,0));
-        auto clusters = pointProcessor.clusterCloud(segmentedCloud.outlier, 0.5);
-
         renderPointCloud(viewer, segmentedCloud.inlier, "Road", Color(0,1,0));
-        renderPointCloud(viewer, segmentedCloud.outlier, "Rest", Color(1,0,0));
-        
+        auto clusters = pointProcessor.clusterCloud(segmentedCloud.outlier, 0.3, 20, 1500);
+        {
+            PROFILE_SCOPE("BoundingBox")
+            int clusterId = 0;
+            std::vector<Color> colors = {Color(1,0,0), Color(1,1,0), Color(0,1,1),Color(0,0,1), Color(1,0,1)};
+            for(auto cluster: clusters)
+            {
+                std::cout << cluster->size() << std::endl;
+                renderPointCloud(viewer, cluster, "obstCloud"+std::to_string(clusterId), colors[clusterId%3]);
+                Box box = pointProcessor.boundingBox(cluster);
+                renderBox(viewer, box, clusterId);
+                ++clusterId;
+            }
+        }
         Profiler::get().endSession();
 
         streamIterator++;

@@ -27,6 +27,7 @@ class PointProcessor
 
         std::vector<boost::filesystem::path> streamPCD(std::string dataPath)
         {
+            PROFILE_FUNCTION()
             std::vector<boost::filesystem::path> paths(boost::filesystem::directory_iterator{dataPath}, boost::filesystem::directory_iterator{});
             sort(paths.begin(), paths.end());
             return paths;
@@ -77,10 +78,27 @@ class PointProcessor
             return segmenter.segment(inputCloud);
         }
         
-        std::vector<typename pcl::PointCloud<PointT>::Ptr> clusterCloud(typename pcl::PointCloud<PointT>::Ptr inputCloud, float clusterTolerance)
+        std::vector<typename pcl::PointCloud<PointT>::Ptr> clusterCloud(typename pcl::PointCloud<PointT>::Ptr inputCloud, float clusterTolerance, int minSize, int maxSize)
         {
             PROFILE_FUNCTION();
-            EuclideanCluster<PointT> clusterer(clusterTolerance);
+            EuclideanCluster<PointT> clusterer(clusterTolerance, minSize, maxSize);
             return clusterer.estimate(inputCloud);
+        }
+
+        Box boundingBox(typename pcl::PointCloud<PointT>::Ptr cluster)
+        {
+            // Find bounding box for one of the clusters
+            PointT minPoint, maxPoint;
+            pcl::getMinMax3D(*cluster, minPoint, maxPoint);
+
+            Box box;
+            box.x_min = minPoint.x;
+            box.y_min = minPoint.y;
+            box.z_min = minPoint.z;
+            box.x_max = maxPoint.x;
+            box.y_max = maxPoint.y;
+            box.z_max = maxPoint.z;
+
+            return box;
         }
 };

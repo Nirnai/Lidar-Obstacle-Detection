@@ -26,22 +26,28 @@ class Ransac
         {
             std::uniform_int_distribution<int> dist(0, cloud->points.size());
             SegmentedCloud<PointT> bestResult{0, nullptr, nullptr};
-            #pragma omp parallel for
-            for(int i = 0; i < m_maxIterations; i++)
             {
-                std::vector<PointT> randSamples;
-                while(randSamples.size() < 3)
+                PROFILE_SCOPE("CreateModels(OpenMP)")
+                #pragma omp parallel for
+                for(int i = 0; i < m_maxIterations; i++)
                 {
-                    randSamples.push_back(cloud->points[dist(m_randomEngines[omp_get_thread_num()])]);
+                    std::vector<PointT> randSamples;
+                    while(randSamples.size() < 3)
+                    {
+                        randSamples.push_back(cloud->points[dist(m_randomEngines[omp_get_thread_num()])]);
+                    }
+                    auto randomModel = std::make_shared<PlaneModel<PointT>>(randSamples);
+                    m_results[i] = randomModel->evaluate(cloud, m_distanceTol);
                 }
-                auto randomModel = std::make_shared<PlaneModel<PointT>>(randSamples);
-                m_results[i] = randomModel->evaluate(cloud, m_distanceTol);
             }
-            for(int i = 0; i < m_maxIterations; ++i)
             {
-                if(m_results[i].fraction > bestResult.fraction)
+                PROFILE_SCOPE("PickBestModel")
+                for(int i = 0; i < m_maxIterations; ++i)
                 {
-                    bestResult = m_results[i];
+                    if(m_results[i].fraction > bestResult.fraction)
+                    {
+                        bestResult = m_results[i];
+                    }
                 }
             }
             return bestResult;

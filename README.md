@@ -23,4 +23,4 @@ This project implements profiling capabilities. For that it defines the two macr
 - `PROFILE_FUNTION()`: Records the time required by a function and saved the data to ´profile/profile.json´ under the function name. 
 - `PROFILE_SCOPE("name")`: This macro allows to record the time taken by random peaces of code. This can be done by encapsulating that code into its own scope. The data is saved to ´profile/profile.json´ under the passed name.
 
-The output data is parsed in such a way, that chrome tracing tool can interpret it. To visualize the resulting profile. open the chrome tracing tool in the chrome browser under the following [link](chrome://tracing). Then load the profile.json file into the tool. 
+The output data is parsed in such a way, that chrome tracing tool can interpret it. To visualize the resulting profile, open the chrome tracing tool in the chrome browser under the following [link](chrome://tracing). Then load the profile.json file into the tool. 

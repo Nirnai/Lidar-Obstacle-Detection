@@ -18,7 +18,7 @@ int main()
     std::cout<<"Starting Environment!"<<std::endl;
 
     pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer);
-    initCamera(FPS, viewer);
+    initCamera(XY, viewer);
 
     PointProcessor<pcl::PointXYZI> pointProcessor;
     auto stream = pointProcessor.streamPCD("../data/pcd/data_1");
@@ -40,14 +40,13 @@ int main()
         // Segment Plane
         auto segmentedCloud = pointProcessor.segmentCloud(filteredCloud, 100, 0.2);
         renderPointCloud(viewer, segmentedCloud.inlier, "Road", Color(0,1,0));
-        auto clusters = pointProcessor.clusterCloud(segmentedCloud.outlier, 0.3, 20, 1500);
+        auto clusters = pointProcessor.clusterCloud(segmentedCloud.outlier, 0.3, 30, 1500);
         {
             PROFILE_SCOPE("BoundingBox")
             int clusterId = 0;
             std::vector<Color> colors = {Color(1,0,0), Color(1,1,0), Color(0,1,1),Color(0,0,1), Color(1,0,1)};
             for(auto cluster: clusters)
             {
-                std::cout << cluster->size() << std::endl;
                 renderPointCloud(viewer, cluster, "obstCloud"+std::to_string(clusterId), colors[clusterId%3]);
                 Box box = pointProcessor.boundingBox(cluster);
                 renderBox(viewer, box, clusterId);
@@ -56,10 +55,14 @@ int main()
         }
         Profiler::get().endSession();
 
+        std::string filename = (*streamIterator).string().substr((*streamIterator).string().find_last_of("/") + 1, 10);
+        viewer->saveScreenshot("../data/png/" + filename + ".png");
+
         streamIterator++;
         if(streamIterator == stream.end())
-            streamIterator = stream.begin();
-
+            break;
+            // streamIterator = stream.begin();
+        
         viewer->spinOnce();
     }
 

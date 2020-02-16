@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.4)
 
 project(ObstacleDetection LANGUAGES CXX)
 
@@ -13,12 +13,3 @@ if(OpenMP_CXX_FOUND)
     target_link_libraries(environment PUBLIC OpenMP::OpenMP_CXX)
 endif()
 target_compile_features(environment PUBLIC cxx_std_11)
-
-
-# add_executable(kdTreeTest src/test.cpp) 
-# target_include_directories(kdTreeTest PUBLIC include ${PCL_INCLUDE_DIRS})
-# target_link_libraries(kdTreeTest PUBLIC ${PCL_LIBRARIES})
-# if(OpenMP_CXX_FOUND)
-#     target_link_libraries(kdTreeTest PUBLIC OpenMP::OpenMP_CXX)
-# endif()
-# target_compile_features(kdTreeTest PUBLIC cxx_std_11)

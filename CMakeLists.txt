@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.4)
 
 project(ObstacleDetection LANGUAGES CXX)
 
-find_package(PCL 1.8 REQUIRED)
+find_package(PCL 1.2 REQUIRED)
 find_package(OpenMP)
 
 

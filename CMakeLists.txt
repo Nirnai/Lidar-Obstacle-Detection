@@ -5,6 +5,7 @@ project(ObstacleDetection LANGUAGES CXX)
 find_package(PCL 1.2 REQUIRED)
 find_package(OpenMP)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(environment src/environment.cpp src/render.cpp) 
 target_include_directories(environment PUBLIC include ${PCL_INCLUDE_DIRS})

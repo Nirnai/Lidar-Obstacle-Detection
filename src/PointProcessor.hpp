@@ -5,7 +5,8 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/io/pcd_io.h>
-#include "clustering/DensityCluster.hpp"
+
+#include "clustering/DBSCAN.hpp"
 #include "clustering/EuclideanCluster.hpp"
 #include "clustering/HDBSCAN.hpp"
 #include "ransac/Ransac.hpp"
@@ -88,8 +89,8 @@ class PointProcessor {
   std::vector<typename pcl::PointCloud<PointT>::Ptr> clusterCloud(
       typename pcl::PointCloud<PointT>::Ptr inputCloud, float eps,
       int min_pts) {
-    HDBSCAN<PointT> clusterer;
-    // DensityCluster<PointT> clusterer(eps, min_pts);
+    // HDBSCAN<PointT> clusterer;
+    DBSCAN<PointT> clusterer(eps, min_pts);
     return clusterer.cluster(inputCloud);
   }
 

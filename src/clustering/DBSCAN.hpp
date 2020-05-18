@@ -1,7 +1,9 @@
 #pragma once
 
 #include <pcl/point_cloud.h>
+
 #include <unordered_set>
+
 #include "KDTree.hpp"
 
 struct Label {
@@ -12,9 +14,9 @@ struct Label {
 };
 
 template <typename PointT>
-class DensityCluster {
+class DBSCAN {
  public:
-  DensityCluster(float epsilon, int min_points)
+  DBSCAN(float epsilon, int min_points)
       : epsilon_(epsilon), min_points_(min_points) {}
 
   std::vector<typename pcl::PointCloud<PointT>::Ptr> cluster(

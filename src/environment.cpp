@@ -10,7 +10,7 @@ int main() {
   initCamera(XY, viewer);
 
   PointProcessor<pcl::PointXYZI> pointProcessor;
-  auto stream = pointProcessor.streamPCD("../data/pcd/data_1");
+  auto stream = pointProcessor.streamPCD("data/pcd/data_1");
   auto streamIterator = stream.begin();
   pcl::PointCloud<pcl::PointXYZI>::Ptr cloud;
 
@@ -37,6 +37,14 @@ int main() {
     // CLUSTERING
     // auto clusters =
     //     pointProcessor.clusterCloud(segmentedCloud.outlier, 0.3, 30, 1500);
+    // segmentedCloud.outlier->width = 1;
+    // segmentedCloud.outlier->height = segmentedCloud.outlier->points.size();
+
+    // pcl::io::savePCDFileASCII("../data/test_pcd.pcd",
+    // *segmentedCloud.outlier); std::cerr << "Saved " <<
+    // segmentedCloud.outlier->points.size()
+    //           << " data points to test_pcd.pcd." << std::endl;
+
     auto clusters =
         pointProcessor.clusterCloud(segmentedCloud.outlier, 0.5, 10);
     std::cout << "Number of Clusters: " << clusters.size() << std::endl;
@@ -52,7 +60,7 @@ int main() {
     }
     // ENF CLUSTERING
 
-    streamIterator++;
+    // streamIterator++;
     if (streamIterator == stream.end()) streamIterator = stream.begin();
 
     viewer->spinOnce();

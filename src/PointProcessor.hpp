@@ -7,6 +7,7 @@
 #include <pcl/io/pcd_io.h>
 #include "clustering/DensityCluster.hpp"
 #include "clustering/EuclideanCluster.hpp"
+#include "clustering/HDBSCAN.hpp"
 #include "ransac/Ransac.hpp"
 #include "render.h"
 
@@ -87,7 +88,8 @@ class PointProcessor {
   std::vector<typename pcl::PointCloud<PointT>::Ptr> clusterCloud(
       typename pcl::PointCloud<PointT>::Ptr inputCloud, float eps,
       int min_pts) {
-    DensityCluster<PointT> clusterer(eps, min_pts);
+    HDBSCAN<PointT> clusterer;
+    // DensityCluster<PointT> clusterer(eps, min_pts);
     return clusterer.cluster(inputCloud);
   }
 

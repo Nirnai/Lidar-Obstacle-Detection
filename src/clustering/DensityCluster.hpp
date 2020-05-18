@@ -37,7 +37,7 @@ class DensityCluster {
     for (int i = 0; i < cloud->size(); i++) {
       if (labels[i].point_type_ != Label::PointType::UNDEFINED) continue;
       auto neighbours = kdtree_->search(cloud->points[i], epsilon_);
-      std::vector<int> cluster_set = neighbours;
+      std::unordered_set<int> cluster_set(neighbours.begin(), neighbours.end());
       if (neighbours.size() < min_points_) {
         labels[i].point_type_ = Label::PointType::NOISE;
       } else {
@@ -58,16 +58,15 @@ class DensityCluster {
   void expandCluster(typename pcl::PointCloud<PointT>::ConstPtr cloud,
                      std::vector<Label>& labels,
                      typename pcl::PointCloud<PointT>::Ptr cluster,
-                     std::vector<int>& cluster_set, int cluster_id) {
-    while (cluster_set.size() > 0) {
-      int n = cluster_set.front();
+                     std::unordered_set<int>& cluster_set, int cluster_id) {
+    while (!cluster_set.empty()) {
+      int n = *cluster_set.begin();
       if (labels[n].point_type_ == Label::PointType::NOISE) {
         labels[n].point_type_ = Label::PointType::CLUSTERED;
         labels[n].cluster_id_ = cluster_id;
         cluster->push_back(cloud->points[n]);
       }
-      if (labels[n].point_type_ != Label::PointType::UNDEFINED) 
-      {
+      if (labels[n].point_type_ != Label::PointType::UNDEFINED) {
         cluster_set.erase(cluster_set.begin());
         continue;
       }
@@ -75,14 +74,15 @@ class DensityCluster {
       labels[n].cluster_id_ = cluster_id;
       cluster->push_back(cloud->points[n]);
       auto new_neighbours = kdtree_->search(cloud->points[n], epsilon_);
+      cluster_set.erase(cluster_set.begin());
       if (new_neighbours.size() > min_points_) {
+        // cluster_set.insert(new_neighbours.begin(), new_neighbours.end());
         for (auto new_n : new_neighbours) {
           if (labels[new_n].point_type_ == Label::PointType::UNDEFINED) {
-            cluster_set.push_back(new_n);
+            cluster_set.insert(new_n);
           }
         }
       }
-      cluster_set.erase(cluster_set.begin());
     }
   }
 
